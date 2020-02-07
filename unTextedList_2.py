@@ -3,9 +3,11 @@ import json
 import requests
 import re
 import pandas as pd
-import threading
+from threading import Thread
+from queue import Queue
 # 多线程如何返回值
-class MyThread(threading.Thread):
+q=Queue()
+class MyThread(Thread):
  
     def __init__(self,func,args=()):
         super(MyThread,self).__init__()
@@ -28,7 +30,7 @@ def foo(classname,Session,headers,data,Field,current_datetime):
         data['pageNow']=str(i)
         r=Session.post("http://mcenter.lixin.edu.cn/r/jd",data=data,headers=headers)
         content=r.json()
-        print(content)
+        # print(content)
         results.extend(content['data']['maindata']['items'])
     
     XMS=[]
@@ -52,7 +54,7 @@ def foo(classname,Session,headers,data,Field,current_datetime):
         j+=1
     result+="完成度%d/%d"%(len(XMS),len(classmates))
     result+="\n"+"-"*10+"\n"
-    return result
+    q.put(result)
 
 def unTextedList(classnames):
     cookies={}
@@ -145,19 +147,28 @@ def unTextedList(classnames):
 
     ts=[]
     for classname in classnames:            
-        t=MyThread(func=foo,args=(classname,Session,headers,data,Field,current_datetime))
+        # t=MyThread(func=foo,args=(classname,Session,headers,data,Field,current_datetime))
+        t=Thread(target=foo,args=(classname,Session,headers,data,Field,current_datetime))
+
         ts.append(t)
     for t in ts:
         t.start()
     for t in ts:
         t.join()
     result=""
-    for t in ts:
-        result+=t.get_result()
+    while not q.empty():
+        result+=q.get()
     
     return result
             
     # print(r.text)
 if __name__=="__main__":
+    start_1=datetime.datetime.now()
+    # print(unTextedList(["2016级审计学（注册会计师方向）1班","2016级审计学（注册会计师方向）2班","2016级会计学9班","2016级会计学7班","2016级会计学8班","2016级会计学A班"]))
     print(unTextedList(["2016级审计学（注册会计师方向）1班","2016级审计学（注册会计师方向）2班","2016级会计学9班","2016级会计学7班","2016级会计学8班","2016级会计学A班"]))
-    # unTextedList(["2016级审计学（注册会计师方向）1班","2016级审计学（注册会计师方向）2班","2016级会计学9班","2016级会计学7班","2016级会计学8班","2016级会计学A班"])
+    end_1=datetime.datetime.now()
+    start_2=datetime.datetime.now()
+    print(unTextedList(["2016级审计学（注册会计师方向）1班","2016级审计学（注册会计师方向）2班"]))
+    end_2=datetime.datetime.now()
+    print("全部班级",end_1-start_1)
+    print("两个班级",end_2-start_2)
